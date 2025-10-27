@@ -50,22 +50,20 @@ def live_stereo_calibrate(CHECKERBOARD=(9,6), num_pairs=12, wait_sec=2.0):
     cv2.destroyAllWindows()
 
     if len(objpoints) < 3:
-        raise RuntimeError("有効なフレームが少なすぎます")
+        raise RuntimeError("lacking available frames")
 
-    # 単体キャリブレーション（左右別々）
-    print(">> 単体キャリブレーション実行...")
+    print(">> self calibration start...")
     _, K1, dist1, _, _ = cv2.calibrateCamera(objpoints, imgpointsL, gL.shape[::-1], None, None)
     _, K2, dist2, _, _ = cv2.calibrateCamera(objpoints, imgpointsR, gR.shape[::-1], None, None)
 
-    # ステレオキャリブ
-    print(">> ステレオキャリブレーション実行...")
+    print(">> stereo calibration start...")
     flags = cv2.CALIB_FIX_INTRINSIC
     retval, _, _, _, _, R, T, E, F = cv2.stereoCalibrate(
         objpoints, imgpointsL, imgpointsR,
         K1, dist1, K2, dist2, gL.shape[::-1],
         criteria=criteria, flags=flags
     )
-    print(">> キャリブ完了")
+    print(">> calibration finished")
     return K1, dist1, K2, dist2, R, T
 
 def save_calibration(K1, dist1, K2, dist2, R, T):
@@ -100,16 +98,16 @@ def live_stereo_aruco_height(K1, dist1, K2, dist2, R, T, marker_length=0.05, cam
     params = cv2.aruco.DetectorParameters()
     detector = cv2.aruco.ArucoDetector(aruco_dict, params)
 
-    print(">> ArUcoトラッキング開始（qで終了）")
+    print(">> Start AruCo tracking (quit with 'q')")
 
-    marker_initial_height = {}  # {id: 初期高さ}
-    marker_previous_height = {} # {id: 前回高さ}
+    marker_initial_height = {}  # {id: initial height}
+    marker_previous_height = {} # {id: prior height}
 
     while True:
         retL, fL = capL.read()
         retR, fR = capR.read()
         if not (retL and retR):
-            print("カメラ読み取り失敗")
+            print("Failed to get Camera")
             break
 
         cornersL, idsL, _ = detector.detectMarkers(fL)
@@ -120,9 +118,7 @@ def live_stereo_aruco_height(K1, dist1, K2, dist2, R, T, marker_length=0.05, cam
         if idsR is not None:
             cv2.aruco.drawDetectedMarkers(fR, cornersR, idsR)
             
-        # print("test0")
-
-        # マッチするIDを見つけて三角測量
+        # Find matching ID and use triangulation
         if idsL is not None and idsR is not None:
             idsL_list = idsL.flatten().tolist()
             idsR_list = idsR.flatten().tolist()
@@ -143,40 +139,31 @@ def live_stereo_aruco_height(K1, dist1, K2, dist2, R, T, marker_length=0.05, cam
                 X = (X_hom[:3] / X_hom[3]).reshape(3)
                 X_m, Y_m, Z_m = X[0], X[1], X[2]
 
-                # コンソールと画面に表示するテキスト
+                # Text to show on the console
                 text_on_screen = f"ID {marker_id} | X={X_m:.2f} Y={Y_m:.2f} Z={Z_m:.2f} m"
-                # print("inside for")
-                # 床高さが指定されていれば差も計算
+                # if camera height is known, calculate
                 if camera_height is not None:
-                    # print("inside if 1")
                     height_from_ground = camera_height - Y_m
 
                     if marker_id not in marker_initial_height:
-                        # print("inside if 2")
                         marker_initial_height[marker_id] = height_from_ground
                     if marker_id in marker_previous_height:
-                        # print("inside if 3")
                         delta_prev = (height_from_ground - marker_previous_height[marker_id]) * 100
                         delta_prev_text = f"({delta_prev:+.1f}cm)"
                     else:
-                        # print("inside else")
-                        delta_prev_text = "(初回)"
+                        delta_prev_text = "(Init)"
                         delta_prev = 0
 
                     delta_start = (height_from_ground - marker_initial_height[marker_id]) * 100
-                    # print("test1")
                     print(f"ID {marker_id} | X={X_m:.3f} Y={Y_m:.3f} Z={Z_m:.3f} | Δ_start={delta_start:+.1f}cm {delta_prev_text}")
-
                     text_on_screen += f" Δ={delta_start:+.1f}cm"
-
                     marker_previous_height[marker_id] = height_from_ground
 
-                # 画面表示
+                # Show on screen
                 cx, cy = int(uL[0]), int(uL[1])
                 cv2.putText(fL, text_on_screen, (cx-50, cy-10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
 
-        # print("test2")
         both = cv2.hconcat([fL, fR])
         cv2.imshow("Stereo ArUco (L | R)", both)
         if cv2.waitKey(1) & 0xFF == ord('q'):
