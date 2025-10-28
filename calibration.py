@@ -7,7 +7,7 @@ CALIB_FILE = "calib_data/calibration.npz"
 
 def live_stereo_calibrate(CHECKERBOARD=(9,6), num_pairs=12, wait_sec=2.0):
     capL = cv2.VideoCapture(0) #change this if "camera not found"
-    capR = cv2.VideoCapture(1) #change this if "camera not found"
+    capR = cv2.VideoCapture(2) #change this if "camera not found"
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1],3), np.float32)
     objp[:,:2] = np.mgrid[0:CHECKERBOARD[0],0:CHECKERBOARD[1]].T.reshape(-1,2)
