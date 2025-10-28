@@ -1,19 +1,32 @@
-#include "pico/stdlib.h"
-#include "hardware/uart.h"
+#include <stdio.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
+#include <stdint.h>
 
 int main() {
-    stdio_init_all();
+    const char* portname = "/dev/ttyACM0";
+    int fd = open(portname, O_RDWR | O_NOCTTY);
+    if (fd < 0) { perror("open"); return 1; }
 
-    // UART0 → TX = GPIO0, RX = GPIO1
-    uart_init(uart0, 420000);  // 420 kbps
-    gpio_set_function(0, GPIO_FUNC_UART);
-    gpio_set_function(1, GPIO_FUNC_UART);
+    struct termios options;
+    tcgetattr(fd, &options);
+    cfsetispeed(&options, B420000);
+    cfsetospeed(&options, B420000);
+    options.c_cflag &= ~PARENB; // no parity
+    options.c_cflag &= ~CSTOPB; // 1 stop bit
+    options.c_cflag &= ~CSIZE;
+    options.c_cflag |= CS8;     // 8 data bits
+    tcsetattr(fd, TCSANOW, &options);
 
-    // Simple test frame
     uint8_t test_frame[8] = {0xEE, 0x06, 0x2D, 0xEE, 0xEF, 0x06, 0x00, 0xF1};
 
     while (1) {
-        uart_write_blocking(uart0, test_frame, sizeof(test_frame));
-        sleep_ms(500);  // send every 0.5 second
+        write(fd, test_frame, sizeof(test_frame));
+        printf("Sent test frame\n");
+        usleep(500000); // 0.5 sec
     }
+
+    close(fd);
+    return 0;
 }
