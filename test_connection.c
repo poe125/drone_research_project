@@ -11,8 +11,8 @@ int main() {
 
     struct termios options;
     tcgetattr(fd, &options);
-    cfsetispeed(&options, B420000);
-    cfsetospeed(&options, B420000);
+    cfsetispeed(&options, B460800);
+    cfsetospeed(&options, B460800);
     options.c_cflag &= ~PARENB; // no parity
     options.c_cflag &= ~CSTOPB; // 1 stop bit
     options.c_cflag &= ~CSIZE;
