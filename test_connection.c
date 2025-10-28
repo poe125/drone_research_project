@@ -19,7 +19,7 @@ int main() {
     // ==========================================
     const char* portname = "/dev/ttyACM0";
     int fd = open(portname, O_RDWR | O_NOCTTY);
-    sprintf("Port %s opened successfully (fd=%d)\n", portname, fd);
+    printf("Port %s opened successfully (fd=%d)\n", portname, fd);
     if (fd < 0) { perror("open"); return 1; }
 
     struct termios options;
