@@ -19,12 +19,31 @@ int main() {
     options.c_cflag |= CS8;     // 8 data bits
     tcsetattr(fd, TCSANOW, &options);
 
-    uint8_t test_frame[8] = {0xEE, 0x06, 0x2D, 0xEE, 0xEF, 0x06, 0x00, 0xF1};
+    // CRSFフレームテンプレート（25バイト）
+    uint8_t frame_template[25] = {
+        0xEE, 0x18, 0x16, 0xD2,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    };
+
+    uint16_t SW_L = 200;   // AUX LED OFF
+    uint16_t SW_H = 1700;  // AUX LED ON
+
+    printf("*** Start Nano TX AUX LED Test ***\n");
 
     while (1) {
-        write(fd, test_frame, sizeof(test_frame));
-        printf("Sent test frame\n");
-        usleep(500000); // 0.5 sec
+        // AUX1をLOWにセットして送信
+        frame_template[3] = SW_L & 0xFF;
+        frame_template[4] = (SW_L >> 8) & 0xFF;
+        write(fd, frame_template, sizeof(frame_template));
+        printf("AUX1 = LOW\n");
+        usleep(500000); // 0.5秒
+
+        // AUX1をHIGHにセットして送信
+        frame_template[3] = SW_H & 0xFF;
+        frame_template[4] = (SW_H >> 8) & 0xFF;
+        write(fd, frame_template, sizeof(frame_template));
+        printf("AUX1 = HIGH\n");
+        usleep(500000); // 0.5秒
     }
 
     close(fd);
