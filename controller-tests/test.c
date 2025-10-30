@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 #define MSP_BEEPER_COMMAND 184  // Betaflight MSP code for beeper
-#define SERIAL_PORT "/dev/ttyUSB0"
+#define SERIAL_PORT "/dev/ttyACM0"
 #define BAUDRATE B460800
 
 // Helper to send MSP command
