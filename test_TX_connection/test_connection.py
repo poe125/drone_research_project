@@ -2,7 +2,7 @@ import serial
 import time
 
 PORT = "/dev/ttyACM0"
-BAUD = 420000
+BAUD = 460800
 
 CRC8_TABLE = [
     0x00, 0xD5, 0x7F, 0xAA, 0xFE, 0x2B, 0x81, 0x54,
