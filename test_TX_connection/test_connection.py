@@ -4,6 +4,7 @@ import time
 PORT = "/dev/ttyACM0"
 BAUD = 460800
 
+# CRC8 table (CRSF)
 CRC8_TABLE = [
     0x00, 0xD5, 0x7F, 0xAA, 0xFE, 0x2B, 0x81, 0x54,
     0x29, 0xFC, 0x56, 0x83, 0xD7, 0x02, 0xA8, 0x7D,
@@ -30,50 +31,56 @@ def crsf_crc8(data):
     return crc
 
 def create_rc_frame(channels):
-    values = [int((ch - 988) * 820 / 1012) for ch in channels]  # map to 0–820
-    packed = bytearray(22)
-    bitbuf = 0
+    """16ch RC frame (CRSF type 0x16)"""
+    # Betaflight expects 0–2047 mapped from 988–2012 µs
+    values = [int((ch - 988) * 820 / 1012) for ch in channels]
+
+    bits = 0
     bitcount = 0
-    byte_i = 0
+    packed = []
 
     for val in values:
-        bitbuf |= (val & 0x7FF) << bitcount
+        bits |= (val & 0x7FF) << bitcount
         bitcount += 11
-        while bitcount >= 8 and byte_i < 22:
-            packed[byte_i] = bitbuf & 0xFF
-            byte_i += 1
-            bitbuf >>= 8
+        while bitcount >= 8:
+            packed.append(bits & 0xFF)
+            bits >>= 8
             bitcount -= 8
 
+    # 残りビットがあれば最後の1バイト追加
+    if len(packed) < 22:
+        packed.append(bits & 0xFF)
+
+    # 長さ合わせ
+    packed = packed[:22]
+
+    # フレーム構築
     frame = bytearray()
-    frame.append(0xC8)   # Address
-    frame.append(24)     # Length (TYPE + PAYLOAD + CRC)
-    frame.append(0x16)   # Type: RC Channels
+    frame.append(0xC8)  # Address
+    frame.append(24)    # Length = Type(1) + Payload(22) + CRC(1)
+    frame.append(0x16)  # Type = RC Channels
     frame.extend(packed)
-    frame.append(crsf_crc8(frame[2:]))  # CRC
+    frame.append(crsf_crc8(frame[2:]))  # CRC over Type+Payload
     return frame
 
-
-# ---- 実行部 ----
-channels = [1500] * 16
+# --- 実行部 ---
+channels = [1500]*16
 aux_beeper = 4  # AUX5
 
 try:
     ser = serial.Serial(PORT, BAUD, timeout=0.1)
-    print("✅ Serial connected:", PORT)
+    print("✅ Serial connected to", PORT)
 
-    # ビーパーON
+    # BEEP ON
     channels[aux_beeper] = 2000
-    frame_on = create_rc_frame(channels)
-    ser.write(frame_on)
-    print("🔔 Beeper ON!")
+    ser.write(create_rc_frame(channels))
+    print("🔔 Beep ON")
     time.sleep(1.0)
 
-    # ビーパーOFF
+    # BEEP OFF
     channels[aux_beeper] = 1000
-    frame_off = create_rc_frame(channels)
-    ser.write(frame_off)
-    print("🔕 Beeper OFF!")
+    ser.write(create_rc_frame(channels))
+    print("🔕 Beep OFF")
 
     ser.close()
 
